@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dashboard Tugas & Deadline</title>
+<style>
+:root{--bg:#f6f7fb;--card:#fff;--tx:#1d2433;--mu:#69728a;--bd:#e3e6ef;--ac:#3b6cf6;--ok:#1f9d63;--wa:#d98a00;--er:#d6403a;
+box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12151d;--card:#1b202c;--tx:#e8ebf3;--mu:#98a1b8;--bd:#2c3344;--ac:#6f93ff;--ok:#43c88a;--wa:#f0b13a;--er:#ff6b64;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#12151d;--card:#1b202c;--tx:#e8ebf3;--mu:#98a1b8;--bd:#2c3344;--ac:#6f93ff;--ok:#43c88a;--wa:#f0b13a;--er:#ff6b64;color-scheme:dark}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+.wrap{max-width:1100px;margin:0 auto;padding:16px}
+h1{font-size:20px;margin:0 0 2px}.sub{color:var(--mu);font-size:13px;margin:0 0 14px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:14px}
+.st{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:10px 12px}
+.st b{display:block;font-size:22px}.st span{color:var(--mu);font-size:12px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:12px;margin-bottom:14px}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+input,select,button{font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:8px 10px;min-width:0}
+button{cursor:pointer}button.pr{background:var(--ac);border-color:var(--ac);color:#fff}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.tabs button.on{background:var(--ac);color:#fff;border-color:var(--ac)}
+.sp{flex:1}
+.kb{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px}
+.col{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:10px;min-height:120px}
+.col.ov{outline:2px dashed var(--ac)}
+.col h3{margin:0 0 8px;font-size:14px;display:flex;justify-content:space-between}
+.t{background:var(--bg);border:1px solid var(--bd);border-left:4px solid var(--c,var(--ac));border-radius:8px;padding:8px;margin-bottom:8px;cursor:grab}
+.t .n{font-weight:600}.t .m{font-size:12px;color:var(--mu)}
+.t .d{font-size:12px;font-weight:600}.d.late{color:var(--er)}.d.soon{color:var(--wa)}.d.done{color:var(--ok)}
+.t .a{display:flex;gap:6px;margin-top:6px}.t .a button{padding:2px 8px;font-size:12px}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal .h{text-align:center;color:var(--mu);font-size:12px}
+.day{background:var(--card);border:1px solid var(--bd);border-radius:8px;min-height:84px;padding:4px;overflow:hidden}
+.day.td{border-color:var(--ac);box-shadow:0 0 0 1px var(--ac)}.day.x{opacity:.35}
+.day small{color:var(--mu)}
+.chip{display:block;font-size:11px;border-radius:4px;padding:1px 4px;margin-top:2px;background:var(--c);color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}
+.chip.dn{opacity:.5;text-decoration:line-through}
+.sc{overflow-x:auto}.sc .cal{min-width:560px}
+.empty{color:var(--mu);font-size:13px;text-align:center;padding:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+<h1>📚 Dashboard Tugas & Deadline</h1>
+<p class="sub" id="today"></p>
+<div class="stats" id="stats"></div>
+
+<div class="card">
+<div class="form">
+<input id="nama" placeholder="Nama tugas">
+<input id="mk" list="mklist" placeholder="Mata kuliah">
+<datalist id="mklist"></datalist>
+<input id="dl" type="date">
+<select id="pri"><option value="1">Prioritas rendah</option><option value="2" selected>Prioritas sedang</option><option value="3">Prioritas tinggi</option></select>
+<button class="pr" id="add">+ Tambah</button>
+</div>
+</div>
+
+<div class="bar">
+<div class="tabs"><button id="tk" class="on">Kanban</button> <button id="tc">Kalender</button></div>
+<select id="fmk"><option value="">Semua mata kuliah</option></select>
+<span class="sp"></span>
+<span id="cnav" style="display:none"><button id="pv">‹</button> <b id="bln"></b> <button id="nx">›</button></span>
+</div>
+<div id="view"></div>
+</div>
+
+<script>
+var COLS=[["todo","Belum dikerjakan"],["doing","Sedang dikerjakan"],["done","Selesai"]];
+var PAL=["#3b6cf6","#1f9d63","#d98a00","#c2410c","#8b5cf6","#0e8fa3","#d6407a","#6b7a2a"];
+var tasks=[],mode="kanban",cur=new Date(),filt="",mem=null;
+function load(){try{var s=localStorage.getItem("tugas-v1");if(s)return JSON.parse(s)}catch(e){}return mem||[]}
+function save(){mem=tasks;try{localStorage.setItem("tugas-v1",JSON.stringify(tasks))}catch(e){}}
+function iso(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function midnight(s){var p=s.split("-");return new Date(+p[0],+p[1]-1,+p[2])}
+var TODAY=new Date();TODAY.setHours(0,0,0,0);
+function diff(s){return Math.round((midnight(s)-TODAY)/864e5)}
+function color(mk){var m=[...new Set(tasks.map(function(t){return t.mk}))].sort();return PAL[m.indexOf(mk)%PAL.length]}
+function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function lbl(t){if(t.st==="done")return["Selesai","done"];var d=diff(t.dl);
+ if(d<0)return["Terlambat "+(-d)+" hari","late"];if(d===0)return["Hari ini","soon"];if(d===1)return["Besok","soon"];
+ return[d+" hari lagi",d<=3?"soon":""]}
+function vis(){return tasks.filter(function(t){return!filt||t.mk===filt})}
+function stats(){var a=vis(),o=a.filter(function(t){return t.st!=="done"});
+ var late=o.filter(function(t){return diff(t.dl)<0}).length,wk=o.filter(function(t){var d=diff(t.dl);return d>=0&&d<=7}).length;
+ var dn=a.length-o.length,pc=a.length?Math.round(dn/a.length*100):0;
+ document.getElementById("stats").innerHTML=[["Total",a.length],["Aktif",o.length],["Minggu ini",wk],["Terlambat",late],["Selesai",pc+"%"]]
+ .map(function(x){return'<div class="st"><b>'+x[1]+'</b><span>'+x[0]+'</span></div>'}).join("")}
+function mkOpts(){var m=[...new Set(tasks.map(function(t){return t.mk}))].sort();
+ document.getElementById("mklist").innerHTML=m.map(function(x){return'<option value="'+esc(x)+'">'}).join("");
+ var f=document.getElementById("fmk");f.innerHTML='<option value="">Semua mata kuliah</option>'+m.map(function(x){return'<option'+(x===filt?" selected":"")+' value="'+esc(x)+'">'+esc(x)+'</option>'}).join("")}
+function card(t){var l=lbl(t),p=["","Rendah","Sedang","Tinggi"][t.pri];
+ var i=COLS.findIndex(function(c){return c[0]===t.st});
+ return'<div class="t" draggable="true" data-id="'+t.id+'" style="--c:'+color(t.mk)+'"><div class="n">'+esc(t.nama)+'</div><div class="m">'+esc(t.mk)+' · '+p+'</div><div class="d '+l[1]+'">'+l[0]+' ('+t.dl+')</div><div class="a">'
+ +(i>0?'<button data-mv="'+t.id+'" data-to="'+COLS[i-1][0]+'">←</button>':'')+(i<2?'<button data-mv="'+t.id+'" data-to="'+COLS[i+1][0]+'">→</button>':'')+'<button data-del="'+t.id+'">Hapus</button></div></div>'}
+function kanban(){var a=vis();
+ return'<div class="kb">'+COLS.map(function(c){var l=a.filter(function(t){return t.st===c[0]}).sort(function(x,y){return x.dl<y.dl?-1:1});
+ return'<div class="col" data-col="'+c[0]+'"><h3>'+c[1]+'<span>'+l.length+'</span></h3>'+(l.map(card).join("")||'<div class="empty">Kosong</div>')+'</div>'}).join("")+'</div>'}
+function calendar(){var y=cur.getFullYear(),m=cur.getMonth(),a=vis();
+ document.getElementById("bln").textContent=cur.toLocaleDateString("id-ID",{month:"long",year:"numeric"});
+ var first=new Date(y,m,1),off=(first.getDay()+6)%7,h="";
+ ["Sen","Sel","Rab","Kam","Jum","Sab","Min"].forEach(function(d){h+='<div class="h">'+d+'</div>'});
+ for(var i=0;i<42;i++){var d=new Date(y,m,1-off+i),k=iso(d);
+  var ts=a.filter(function(t){return t.dl===k});
+  h+='<div class="day'+(d.getMonth()!==m?" x":"")+(k===iso(TODAY)?" td":"")+'"><small>'+d.getDate()+'</small>'
+  +ts.map(function(t){return'<span class="chip'+(t.st==="done"?" dn":"")+'" style="--c:'+color(t.mk)+'" data-tg="'+t.id+'" title="'+esc(t.mk+' — '+t.nama)+'">'+esc(t.nama)+'</span>'}).join("")+'</div>'}
+ return'<div class="sc"><div class="cal">'+h+'</div></div>'}
+function render(){mkOpts();stats();
+ document.getElementById("cnav").style.display=mode==="cal"?"":"none";
+ document.getElementById("tk").className=mode==="kanban"?"on":"";document.getElementById("tc").className=mode==="cal"?"on":"";
+ document.getElementById("view").innerHTML=mode==="kanban"?kanban():calendar()}
+function setSt(id,st){var t=tasks.find(function(x){return x.id==id});if(t){t.st=st;save();render()}}
+document.getElementById("today").textContent="Hari ini: "+TODAY.toLocaleDateString("id-ID",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
+document.getElementById("add").onclick=function(){
+ var n=document.getElementById("nama").value.trim(),m=document.getElementById("mk").value.trim(),d=document.getElementById("dl").value;
+ if(!n||!m||!d){alert("Isi nama tugas, mata kuliah, dan deadline dulu ya.");return}
+ tasks.push({id:Date.now(),nama:n,mk:m,dl:d,pri:+document.getElementById("pri").value,st:"todo"});
+ save();document.getElementById("nama").value="";render()};
+document.getElementById("tk").onclick=function(){mode="kanban";render()};
+document.getElementById("tc").onclick=function(){mode="cal";render()};
+document.getElementById("pv").onclick=function(){cur=new Date(cur.getFullYear(),cur.getMonth()-1,1);render()};
+document.getElementById("nx").onclick=function(){cur=new Date(cur.getFullYear(),cur.getMonth()+1,1);render()};
+document.getElementById("fmk").onchange=function(e){filt=e.target.value;render()};
+var V=document.getElementById("view");
+V.addEventListener("click",function(e){var b=e.target;
+ if(b.dataset.mv)setSt(b.dataset.mv,b.dataset.to);
+ else if(b.dataset.del){if(confirm("Hapus tugas ini?")){tasks=tasks.filter(function(t){return t.id!=b.dataset.del});save();render()}}
+ else if(b.dataset.tg){var t=tasks.find(function(x){return x.id==b.dataset.tg});if(t){setSt(t.id,t.st==="done"?"todo":"done")}}});
+V.addEventListener("dragstart",function(e){var t=e.target.closest&&e.target.closest(".t");if(t)e.dataTransfer.setData("text/plain",t.dataset.id)});
+V.addEventListener("dragover",function(e){var c=e.target.closest(".col");if(c){e.preventDefault();c.classList.add("ov")}});
+V.addEventListener("dragleave",function(e){var c=e.target.closest(".col");if(c)c.classList.remove("ov")});
+V.addEventListener("drop",function(e){var c=e.target.closest(".col");if(c){e.preventDefault();setSt(e.dataTransfer.getData("text/plain"),c.dataset.col)}});
+tasks=load();
+if(!tasks.length){var d1=function(n){var x=new Date(TODAY);x.setDate(x.getDate()+n);return iso(x)};
+ tasks=[{id:1,nama:"Laporan praktikum Arduino",mk:"Praktikum Elektronika",dl:d1(2),pri:3,st:"doing"},
+ {id:2,nama:"Soal latihan jaringan",mk:"Jaringan Komputer",dl:d1(5),pri:2,st:"todo"},
+ {id:3,nama:"Resume bab 4",mk:"Sistem Embedded",dl:d1(-1),pri:2,st:"todo"},
+ {id:4,nama:"Quiz online",mk:"Jaringan Komputer",dl:d1(-3),pri:1,st:"done"}]}
+render();
+</script>
+</body>
+</html>
